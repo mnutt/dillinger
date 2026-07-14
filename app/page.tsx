@@ -21,8 +21,6 @@ export const metadata: Metadata = {
   },
 };
 
-export const dynamic = "force-dynamic";
-
 const Editor = nextDynamic(
   () => import("@/components/editor/EditorContainer").then((mod) => mod.EditorContainer),
   {

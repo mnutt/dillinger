@@ -15,6 +15,7 @@
 
 # production
 /build
+/public/vendor/monaco/
 
 # misc
 .DS_Store
@@ -35,3 +36,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.codex/skills/sandstorm-app-author/
+.claude/skills/sandstorm-app-author/
+
+# Sandstorm packages are release artifacts.
+/*.spk

@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
-import { renderHtmlDocument } from "@/lib/export";
-import { renderMarkdown } from "@/lib/markdown";
+import { renderHtmlDocument } from "./export";
+import { renderMarkdown } from "./markdown";
 
 const PDF_OPTIONS = {
   format: "A4" as const,
@@ -26,7 +26,11 @@ const LOCAL_CHROME_CANDIDATES = [
 ].filter((candidate): candidate is string => Boolean(candidate));
 
 function isServerlessRuntime() {
-  return Boolean(process.env.VERCEL || process.env.AWS_EXECUTION_ENV);
+  return Boolean(
+    process.env.VERCEL ||
+    process.env.AWS_EXECUTION_ENV ||
+    process.env.SANDSTORM === "1"
+  );
 }
 
 async function resolveChromeExecutablePath() {

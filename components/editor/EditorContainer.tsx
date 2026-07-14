@@ -52,6 +52,7 @@ const DropZoneOverlay = memo(function DropZoneOverlay({
 });
 
 function EditorContent() {
+  const isSandstorm = process.env.NEXT_PUBLIC_SANDSTORM === "1";
   const previewVisible = useStore((state) => state.previewVisible);
   const currentDocument = useStore((state) => state.currentDocument);
   const createImportedDocument = useStore((state) => state.createImportedDocument);
@@ -212,8 +213,8 @@ function EditorContent() {
     >
       <DropZoneOverlay isDragging={isDragging} />
 
-      {/* Sidebar */}
-      <Sidebar />
+      {/* A Sandstorm grain is one document; the shell owns navigation. */}
+      {!isSandstorm && <Sidebar />}
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">

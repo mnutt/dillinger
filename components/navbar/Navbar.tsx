@@ -18,9 +18,18 @@ import {
   Upload,
   ImagePlus,
   HelpCircle,
+  Globe2,
+  X,
 } from "lucide-react";
 
 type ExportFormat = "markdown" | "html" | "pdf";
+
+interface PublishInfo {
+  publicId: string;
+  autoUrl: string;
+  cnameTarget: string;
+  isDemoUser: boolean;
+}
 
 function getDownloadFilename(response: Response, fallback: string): string {
   const contentDisposition = response.headers.get("Content-Disposition");
@@ -29,6 +38,7 @@ function getDownloadFilename(response: Response, fallback: string): string {
 }
 
 export function Navbar() {
+  const isSandstorm = process.env.NEXT_PUBLIC_SANDSTORM === "1";
   const toggleSidebar = useStore((state) => state.toggleSidebar);
   const toggleSettings = useStore((state) => state.toggleSettings);
   const togglePreview = useStore((state) => state.togglePreview);
@@ -42,6 +52,8 @@ export function Navbar() {
   const { upload } = useImageUpload();
 
   const [exportOpen, setExportOpen] = useState(false);
+  const [publishInfo, setPublishInfo] = useState<PublishInfo | null>(null);
+  const [publishing, setPublishing] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -160,18 +172,47 @@ export function Navbar() {
     insertMarkdownAtCursor(`\n${result.markdown}\n`);
   }, [upload, insertMarkdownAtCursor]);
 
+  const handlePublish = useCallback(async () => {
+    if (!currentDocument || publishing) return;
+
+    setPublishing(true);
+    try {
+      const response = await fetch("/api/sandstorm/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: currentDocument.title,
+          markdown: currentDocument.body,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || "Publish failed");
+      }
+
+      setPublishInfo(result);
+      notify("Published to the web");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Publish failed");
+    } finally {
+      setPublishing(false);
+    }
+  }, [currentDocument, notify, publishing]);
+
   return (
     <nav className="h-14 bg-bg-navbar flex items-center justify-between px-4 z-navbar">
       {/* Left side */}
       <div className="flex items-center gap-4">
-        <button
-          onClick={toggleSidebar}
-          aria-label="Toggle sidebar"
-          className="text-text-invert hover:text-plum transition-all active:scale-[0.97]
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum focus-visible:ring-offset-2 focus-visible:ring-offset-bg-navbar rounded"
-        >
-          <Menu size={24} />
-        </button>
+        {!isSandstorm && (
+          <button
+            onClick={toggleSidebar}
+            aria-label="Toggle sidebar"
+            className="text-text-invert hover:text-plum transition-all active:scale-[0.97]
+                       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum focus-visible:ring-offset-2 focus-visible:ring-offset-bg-navbar rounded"
+          >
+            <Menu size={24} />
+          </button>
+        )}
         <span className="text-plum font-bold text-xl tracking-wide hidden sm:block">
           DILLINGER
         </span>
@@ -179,6 +220,53 @@ export function Navbar() {
 
       {/* Right side */}
       <div className="flex items-center gap-2">
+        {isSandstorm && (
+          <div className="relative">
+            <button
+              onClick={handlePublish}
+              disabled={publishing}
+              aria-label="Publish document to the web"
+              className="text-bg-navbar bg-plum hover:opacity-90 active:scale-[0.97] px-3 py-2
+                         flex items-center gap-1 text-sm font-medium rounded transition-all
+                         disabled:opacity-60 disabled:cursor-wait
+                         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            >
+              <Globe2 size={18} />
+              <span>{publishing ? "Publishing…" : "Publish"}</span>
+            </button>
+
+            {publishInfo && (
+              <div className="absolute right-0 top-full mt-2 z-modal w-80 rounded bg-white p-4 text-text-primary shadow-xl border border-border-light">
+                <button
+                  onClick={() => setPublishInfo(null)}
+                  className="absolute right-2 top-2 rounded text-text-muted hover:text-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum"
+                  aria-label="Close publishing details"
+                >
+                  <X size={18} />
+                </button>
+                <p className="font-semibold">Published</p>
+                <a
+                  href={publishInfo.autoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 block break-all text-sm text-plum hover:underline"
+                >
+                  {publishInfo.autoUrl}
+                </a>
+                {!publishInfo.isDemoUser && (
+                  <div className="mt-4 text-xs leading-relaxed text-text-muted">
+                    <p className="font-medium text-text-primary">Custom domain DNS</p>
+                    <p className="mt-1">CNAME your domain to:</p>
+                    <code className="block break-all rounded bg-bg-primary p-1">{publishInfo.cnameTarget}</code>
+                    <p className="mt-2">Add a TXT record at <code>sandstorm-www.your-domain</code> containing:</p>
+                    <code className="block break-all rounded bg-bg-primary p-1">{publishInfo.publicId}</code>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         <button
           onClick={() => importInputRef.current?.click()}
           aria-label="Import file"

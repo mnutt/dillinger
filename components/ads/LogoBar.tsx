@@ -35,6 +35,9 @@ function initAd() {
 }
 
 export function LogoBar() {
+  // Sandstorm's strict CSP intentionally blocks third-party ad scripts.
+  if (process.env.NEXT_PUBLIC_SANDSTORM === "1") return null;
+
   return (
     <>
       <Script

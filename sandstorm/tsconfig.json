@@ -1,0 +1,23 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "isolatedModules": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": "../.next/standalone/sandstorm-runtime",
+    "rootDir": "..",
+    "target": "ES2022"
+  },
+  "include": [
+    "./**/*.ts",
+    "../lib/document.ts",
+    "../lib/export.ts",
+    "../lib/markdown.ts",
+    "../lib/markdown-plugins.d.ts",
+    "../lib/pdf.ts",
+    "../lib/types.ts",
+    "../lib/vendor.d.ts"
+  ]
+}

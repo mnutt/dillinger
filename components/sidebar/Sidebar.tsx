@@ -75,6 +75,7 @@ function uiReducer(state: SidebarUIState, action: SidebarAction): SidebarUIState
 }
 
 export function Sidebar() {
+  const isSandstorm = process.env.NEXT_PUBLIC_SANDSTORM === "1";
   const sidebarOpen = useStore((state) => state.sidebarOpen);
   const documents = useStore((state) => state.documents);
   const currentDocument = useStore((state) => state.currentDocument);
@@ -128,33 +129,37 @@ export function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-auto px-4">
-          <CollapsibleSection
-            label="Services"
-            panelId="services-panel"
-            icon={<Plug size={14} />}
-            isOpen={ui.servicesOpen}
-            onToggle={() => dispatch({ type: "toggle", section: "servicesOpen" })}
-          >
-            <CloudServicesList />
-          </CollapsibleSection>
+          {!isSandstorm && (
+            <>
+              <CollapsibleSection
+                label="Services"
+                panelId="services-panel"
+                icon={<Plug size={14} />}
+                isOpen={ui.servicesOpen}
+                onToggle={() => dispatch({ type: "toggle", section: "servicesOpen" })}
+              >
+                <CloudServicesList />
+              </CollapsibleSection>
 
-          <CloudServiceMenu
-            label="Import from"
-            panelId="import-panel"
-            icon={<CloudDownload size={14} />}
-            isOpen={ui.importOpen}
-            onToggle={() => dispatch({ type: "toggle", section: "importOpen" })}
-            onSelect={(target) => dispatch({ type: "openModal", target, mode: "import" })}
-          />
+              <CloudServiceMenu
+                label="Import from"
+                panelId="import-panel"
+                icon={<CloudDownload size={14} />}
+                isOpen={ui.importOpen}
+                onToggle={() => dispatch({ type: "toggle", section: "importOpen" })}
+                onSelect={(target) => dispatch({ type: "openModal", target, mode: "import" })}
+              />
 
-          <CloudServiceMenu
-            label="Save to"
-            panelId="save-panel"
-            icon={<CloudUpload size={14} />}
-            isOpen={ui.saveOpen}
-            onToggle={() => dispatch({ type: "toggle", section: "saveOpen" })}
-            onSelect={(target) => dispatch({ type: "openModal", target, mode: "save" })}
-          />
+              <CloudServiceMenu
+                label="Save to"
+                panelId="save-panel"
+                icon={<CloudUpload size={14} />}
+                isOpen={ui.saveOpen}
+                onToggle={() => dispatch({ type: "toggle", section: "saveOpen" })}
+                onSelect={(target) => dispatch({ type: "openModal", target, mode: "save" })}
+              />
+            </>
+          )}
 
           <CollapsibleSection
             label="Documents"

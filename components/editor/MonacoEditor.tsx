@@ -1,11 +1,18 @@
 "use client";
 
 import { useRef, useCallback, useEffect, useMemo } from "react";
-import Editor, { OnMount, OnChange } from "@monaco-editor/react";
+import Editor, { loader, OnMount, OnChange } from "@monaco-editor/react";
 import type * as Monaco from "monaco-editor";
 import { useStore } from "@/stores/store";
 import { countDocumentStats } from "@/lib/document";
 import { useImageUpload } from "@/hooks/useImageUpload";
+
+// Monaco's React wrapper defaults to jsDelivr. Sandstorm's CSP deliberately
+// blocks third-party scripts, so always load the packaged AMD build from this
+// application's own origin instead.
+loader.config({
+  paths: { vs: "/vendor/monaco/0.55.1-sandstorm.3/vs" },
+});
 
 export function MonacoEditor() {
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);

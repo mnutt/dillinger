@@ -56,6 +56,50 @@ const createDefaultDocument = (): Document => ({
   createdAt: new Date().toISOString(),
 });
 
+const IS_SANDSTORM = process.env.NEXT_PUBLIC_SANDSTORM === "1";
+
+interface SandstormState {
+  version: 1;
+  document: Document;
+}
+
+function readLocalState() {
+  const filesJson = localStorage.getItem("files");
+  const currentJson = localStorage.getItem("currentDocument");
+  const settingsJson = localStorage.getItem("profileV3");
+
+  const isFirstVisit = !filesJson;
+  let documents: Document[] = filesJson ? JSON.parse(filesJson) : [];
+  let currentDocument: Document | null = currentJson ? JSON.parse(currentJson) : null;
+  const settings: UserSettings = settingsJson
+    ? { ...DEFAULT_SETTINGS, ...JSON.parse(settingsJson) }
+    : DEFAULT_SETTINGS;
+
+  if (documents.length === 0) {
+    const defaultDoc = createDefaultDocument();
+    documents = [defaultDoc];
+    currentDocument = defaultDoc;
+  }
+
+  if (!currentDocument || !documents.find((document) => document.id === currentDocument!.id)) {
+    currentDocument = documents[0];
+  }
+
+  return { documents, currentDocument, settings, sidebarOpen: isFirstVisit };
+}
+
+async function saveSandstormState(state: SandstormState): Promise<void> {
+  const response = await fetch("/api/sandstorm/state", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Sandstorm save failed with status ${response.status}`);
+  }
+}
+
 export const useStore = create<AppState>((set, get) => ({
   // Initial State
   documents: [],
@@ -75,7 +119,7 @@ export const useStore = create<AppState>((set, get) => ({
   createDocument: () => {
     const newDoc = createDefaultDocument();
     set((state) => ({
-      documents: [...state.documents, newDoc],
+      documents: IS_SANDSTORM ? [newDoc] : [...state.documents, newDoc],
       currentDocument: newDoc,
     }));
     get().persist();
@@ -89,7 +133,7 @@ export const useStore = create<AppState>((set, get) => ({
     };
 
     set((state) => ({
-      documents: [...state.documents, newDoc],
+      documents: IS_SANDSTORM ? [newDoc] : [...state.documents, newDoc],
       currentDocument: newDoc,
     }));
     get().persist();
@@ -194,30 +238,47 @@ export const useStore = create<AppState>((set, get) => ({
     if (typeof window === "undefined") return;
 
     try {
-      const filesJson = localStorage.getItem("files");
-      const currentJson = localStorage.getItem("currentDocument");
-      const settingsJson = localStorage.getItem("profileV3");
+      const localState = readLocalState();
 
-      const isFirstVisit = !filesJson;
-      let documents: Document[] = filesJson ? JSON.parse(filesJson) : [];
-      let currentDocument: Document | null = currentJson ? JSON.parse(currentJson) : null;
-      const settings: UserSettings = settingsJson
-        ? { ...DEFAULT_SETTINGS, ...JSON.parse(settingsJson) }
-        : DEFAULT_SETTINGS;
-
-      // Ensure at least one document exists
-      if (documents.length === 0) {
-        const defaultDoc = createDefaultDocument();
-        documents = [defaultDoc];
-        currentDocument = defaultDoc;
+      if (!IS_SANDSTORM) {
+        set({ ...localState, isDirty: false });
+        return;
       }
 
-      // Ensure currentDocument is valid
-      if (!currentDocument || !documents.find((d) => d.id === currentDocument!.id)) {
-        currentDocument = documents[0];
-      }
+      // Settings stay browser-local. Documents live in /var so the grain is
+      // durable and all people with access see the same notebook.
+      void fetch("/api/sandstorm/state")
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Sandstorm load failed with status ${response.status}`);
+          }
 
-      set({ documents, currentDocument, settings, isDirty: false, sidebarOpen: isFirstVisit });
+          const remote = await response.json() as {
+            exists: boolean;
+            state?: SandstormState;
+          };
+
+          if (!remote.exists || !remote.state) {
+            set({ ...localState, isDirty: false });
+            await saveSandstormState({
+              version: 1,
+              document: localState.currentDocument!,
+            });
+            return;
+          }
+
+          set({
+            documents: [remote.state.document],
+            currentDocument: remote.state.document,
+            settings: localState.settings,
+            sidebarOpen: false,
+            isDirty: false,
+          });
+        })
+        .catch((error) => {
+          console.error("Failed to hydrate Sandstorm state:", error);
+          set({ ...localState, isDirty: false });
+        });
     } catch (e) {
       console.error("Failed to hydrate state:", e);
     }
@@ -229,10 +290,20 @@ export const useStore = create<AppState>((set, get) => ({
     const { documents, currentDocument, settings } = get();
 
     try {
-      localStorage.setItem("files", JSON.stringify(documents));
-      localStorage.setItem("currentDocument", JSON.stringify(currentDocument));
       localStorage.setItem("profileV3", JSON.stringify(settings));
-      set({ isDirty: false });
+
+      if (IS_SANDSTORM) {
+        void saveSandstormState({
+          version: 1,
+          document: currentDocument ?? documents[0] ?? createDefaultDocument(),
+        })
+          .then(() => set({ isDirty: false }))
+          .catch((error) => console.error("Failed to persist Sandstorm state:", error));
+      } else {
+        localStorage.setItem("files", JSON.stringify(documents));
+        localStorage.setItem("currentDocument", JSON.stringify(currentDocument));
+        set({ isDirty: false });
+      }
     } catch (e) {
       console.error("Failed to persist state:", e);
     }

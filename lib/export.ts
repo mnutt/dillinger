@@ -1,4 +1,4 @@
-import { replaceExtension, sanitizeDownloadFilename } from "@/lib/document";
+import { replaceExtension, sanitizeDownloadFilename } from "./document";
 
 const STYLED_EXPORT_CSS = `
   @import url("https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.9.0-alpha2/katex.min.css");
@@ -75,6 +75,15 @@ const STYLED_EXPORT_CSS = `
   }
 `;
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 export function getExportFilename(title: string | undefined, extension: string): string {
   const safeTitle = sanitizeDownloadFilename(title?.trim() || "document");
   return sanitizeDownloadFilename(replaceExtension(safeTitle, extension));
@@ -96,7 +105,7 @@ export function renderHtmlDocument({
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title || "Document"}</title>
+  <title>${escapeHtml(title || "Document")}</title>
   ${styleTag}
 </head>
 <body id="preview">

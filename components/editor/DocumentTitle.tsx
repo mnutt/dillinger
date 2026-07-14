@@ -17,6 +17,13 @@ export function DocumentTitle() {
     setTitle(currentDocument?.title || "");
   }, [currentDocument?.title]);
 
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_SANDSTORM !== "1" || !currentDocument?.title) return;
+
+    document.title = currentDocument.title;
+    window.parent.postMessage({ setTitle: currentDocument.title }, "*");
+  }, [currentDocument?.title]);
+
   const inputRef = useCallback((node: HTMLInputElement | null) => {
     if (node) {
       node.focus();
