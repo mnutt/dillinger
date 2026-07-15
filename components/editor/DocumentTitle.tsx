@@ -8,20 +8,12 @@ import { DEFAULT_DOCUMENT_TITLE } from "@/lib/document";
 export function DocumentTitle() {
   const currentDocument = useStore((state) => state.currentDocument);
   const updateDocumentTitle = useStore((state) => state.updateDocumentTitle);
-  const isDirty = useStore((state) => state.isDirty);
 
   const [isEditing, setIsEditing] = useState(false);
   const [title, setTitle] = useState("");
 
   useEffect(() => {
     setTitle(currentDocument?.title || "");
-  }, [currentDocument?.title]);
-
-  useEffect(() => {
-    if (process.env.NEXT_PUBLIC_SANDSTORM !== "1" || !currentDocument?.title) return;
-
-    document.title = currentDocument.title;
-    window.parent.postMessage({ setTitle: currentDocument.title }, "*");
   }, [currentDocument?.title]);
 
   const inputRef = useCallback((node: HTMLInputElement | null) => {
@@ -82,12 +74,6 @@ export function DocumentTitle() {
           <h2 className="text-text-primary font-semibold text-base truncate">
             {currentDocument.title || DEFAULT_DOCUMENT_TITLE}
           </h2>
-          <span
-            aria-live="polite"
-            className={`text-xs text-text-muted ml-2 transition-opacity duration-200 ${isDirty ? "" : "opacity-50"}`}
-          >
-            {isDirty ? "Unsaved" : "Saved"}
-          </span>
           <button
             onClick={() => setIsEditing(true)}
             aria-label="Edit title"

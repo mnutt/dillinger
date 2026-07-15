@@ -1,9 +1,13 @@
 import React from "react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { EditorSkeleton } from "@/components/ui/Skeleton";
 
 describe("Skeleton", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it("renders with default pulse animation and highlight background", () => {
     render(<EditorSkeleton />);
 
@@ -42,5 +46,13 @@ describe("Skeleton", () => {
 
     const main = document.querySelector("main");
     expect(main).toBeInTheDocument();
+  });
+
+  it("omits the title-bar placeholder in Sandstorm", () => {
+    vi.stubEnv("NEXT_PUBLIC_SANDSTORM", "1");
+
+    render(<EditorSkeleton />);
+
+    expect(screen.queryByTestId("document-title-skeleton")).not.toBeInTheDocument();
   });
 });

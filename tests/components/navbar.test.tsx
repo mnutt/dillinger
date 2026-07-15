@@ -1,6 +1,6 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Navbar } from "@/components/navbar/Navbar";
 import { useStore } from "@/stores/store";
@@ -39,6 +39,7 @@ function resetStore() {
       settingsOpen: false,
       previewVisible: true,
       zenMode: false,
+      isDirty: false,
       editorScrollPercent: 0,
       editorTopLine: 1,
     },
@@ -148,6 +149,19 @@ describe("Navbar", () => {
     await user.click(screen.getByRole("button", { name: "Enter zen mode" }));
 
     expect(useStore.getState().zenMode).toBe(true);
+  });
+
+  it("shows save state to the right of help", () => {
+    render(<Navbar />);
+
+    const savedStatus = screen.getByRole("status", { name: "Saved" });
+    expect(savedStatus.previousElementSibling).toHaveAccessibleName("Keyboard shortcuts");
+    expect(savedStatus.nextElementSibling).toBeNull();
+
+    act(() => useStore.setState({ isDirty: true }));
+
+    const unsavedStatus = screen.getByRole("status", { name: "Unsaved" });
+    expect(unsavedStatus).toHaveAttribute("title", "Unsaved changes");
   });
 
   it("closes export dropdown when clicking outside", async () => {

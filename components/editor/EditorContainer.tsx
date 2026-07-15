@@ -219,7 +219,8 @@ function EditorContent() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0">
         <Navbar />
-        <DocumentTitle />
+        {/* Sandstorm owns the grain title, so it does not need an in-app title bar. */}
+        {!isSandstorm && <DocumentTitle />}
 
         {/* Editor + Preview */}
         <div className="flex-1 flex min-h-0">

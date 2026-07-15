@@ -20,6 +20,8 @@ import {
   HelpCircle,
   Globe2,
   X,
+  CloudCheck,
+  CloudUpload,
 } from "lucide-react";
 
 type ExportFormat = "markdown" | "html" | "pdf";
@@ -48,6 +50,7 @@ export function Navbar() {
   const insertMarkdownAtCursor = useStore((state) => state.insertMarkdownAtCursor);
   const setZenMode = useStore((state) => state.setZenMode);
   const toggleShortcuts = useStore((state) => state.toggleShortcuts);
+  const isDirty = useStore((state) => state.isDirty);
   const { notify } = useToast();
   const { upload } = useImageUpload();
 
@@ -398,6 +401,18 @@ export function Navbar() {
         >
           <HelpCircle size={20} />
         </button>
+
+        {/* Save status */}
+        <span
+          role="status"
+          aria-label={isDirty ? "Unsaved" : "Saved"}
+          title={isDirty ? "Unsaved changes" : "All changes saved"}
+          className={`p-2 transition-colors ${
+            isDirty ? "text-amber-300" : "text-plum"
+          }`}
+        >
+          {isDirty ? <CloudUpload size={20} /> : <CloudCheck size={20} />}
+        </span>
       </div>
 
       <input

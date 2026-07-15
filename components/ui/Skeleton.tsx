@@ -18,6 +18,8 @@ function Skeleton({ className }: SkeletonProps) {
 }
 
 export function EditorSkeleton() {
+  const isSandstorm = process.env.NEXT_PUBLIC_SANDSTORM === "1";
+
   return (
     <div className="h-dvh flex overflow-hidden bg-bg-primary">
       {/* Sidebar skeleton */}
@@ -59,10 +61,14 @@ export function EditorSkeleton() {
           <Skeleton className="h-6 w-6" />
         </div>
 
-        {/* Document title skeleton */}
-        <div className="h-14 bg-bg-primary flex items-center px-4 border-b border-border-light">
-          <Skeleton className="h-6 w-48" />
-        </div>
+        {!isSandstorm && (
+          <div
+            data-testid="document-title-skeleton"
+            className="h-14 bg-bg-primary flex items-center px-4 border-b border-border-light"
+          >
+            <Skeleton className="h-6 w-48" />
+          </div>
+        )}
 
         {/* Editor/preview area */}
         <div className="flex-1 flex">
