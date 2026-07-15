@@ -51,39 +51,18 @@ const editorApiFile = findUnique(
 );
 
 if (isSandstorm) {
-  const markdownFile = findUnique(
-    topLevelFiles,
-    /^markdown-.*\.js$/,
-    "Monaco Markdown tokenizer",
-  );
-  const workersFile = findUnique(
-    topLevelFiles,
-    /^workers-.*\.js$/,
-    "Monaco worker registration bundle",
-  );
-  const contributionFiles = topLevelFiles.filter((name) =>
-    /^monaco\.contribution-.*\.js$/.test(name)
-  );
-  if (contributionFiles.length !== 4) {
-    throw new Error(
-      `Expected four Monaco language contribution bundles, found ${contributionFiles.length}`,
-    );
-  }
+  const runtimeModuleFiles = topLevelFiles.filter((name) => name.endsWith(".js"));
 
   // editor.main.js has hard AMD dependencies on these contribution modules.
-  // Their worker URLs are inert in Sandstorm because editor.api is patched to
-  // use Monaco's synchronous local worker before constructing a Web Worker.
+  // The basic-language contribution also registers lazy AMD loaders for every
+  // fenced-code language. Keep the top-level runtime modules so editing or
+  // pasting Markdown cannot request a module omitted from the package. Worker
+  // URLs remain inert because editor.api is patched to use the local fallback.
   const allowlist = [
-    "loader.js",
-    "nls.messages-loader.js",
-    "nls.messages.js.js",
+    ...runtimeModuleFiles,
     "editor/editor.main.css",
     "editor/editor.main.js",
     "basic-languages/monaco.contribution.js",
-    editorApiFile,
-    markdownFile,
-    workersFile,
-    ...contributionFiles,
   ];
   await Promise.all(allowlist.map(copyRelative));
 } else {

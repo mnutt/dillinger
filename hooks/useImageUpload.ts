@@ -47,24 +47,8 @@ export function useImageUpload() {
     [notify]
   );
 
-  const uploadFromClipboard = useCallback(
-    async (items: DataTransferItemList): Promise<UploadResult | null> => {
-      for (const item of Array.from(items)) {
-        if (item.type.startsWith("image/")) {
-          const file = item.getAsFile();
-          if (file) {
-            return upload(file);
-          }
-        }
-      }
-      return null;
-    },
-    [upload]
-  );
-
   return {
     upload,
-    uploadFromClipboard,
     isUploading,
   };
 }

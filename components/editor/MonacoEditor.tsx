@@ -31,7 +31,7 @@ export function MonacoEditor() {
   const setEditorScrollPercent = useStore((state) => state.setEditorScrollPercent);
   const setEditorTopLine = useStore((state) => state.setEditorTopLine);
   const setEditorInstance = useStore((state) => state.setEditorInstance);
-  const { uploadFromClipboard } = useImageUpload();
+  const { upload } = useImageUpload();
 
   const keybindingLabel =
     keybindings === "vim"
@@ -94,6 +94,42 @@ export function MonacoEditor() {
   }, [setEditorInstance]);
 
   useEffect(() => {
+    const handleImagePaste = async (event: ClipboardEvent) => {
+      const editor = editorRef.current;
+      const clipboard = event.clipboardData;
+      if (!editor?.hasTextFocus() || !clipboard) return;
+
+      const imageItem = Array.from(clipboard.items).find((item) =>
+        item.type.startsWith("image/")
+      );
+      const imageFile = imageItem?.getAsFile() ??
+        Array.from(clipboard.files).find((file) => file.type.startsWith("image/"));
+      const selection = editor.getSelection();
+      if (!imageFile || !selection) return;
+
+      // Monaco consumes file payloads in its container-level capture listener.
+      // Capture first on window and replace the paste after the upload finishes.
+      event.preventDefault();
+      event.stopPropagation();
+
+      const result = await upload(imageFile);
+      if (!result) return;
+
+      editor.executeEdits("dillinger-image-paste", [
+        {
+          range: selection,
+          text: `\n${result.markdown}\n`,
+          forceMoveMarkers: true,
+        },
+      ]);
+      editor.focus();
+    };
+
+    window.addEventListener("paste", handleImagePaste, true);
+    return () => window.removeEventListener("paste", handleImagePaste, true);
+  }, [upload]);
+
+  useEffect(() => {
     const editor = editorRef.current;
     const statusNode = keybindingStatusRef.current;
     if (!editor || !statusNode) return;
@@ -146,46 +182,6 @@ export function MonacoEditor() {
 
     return () => disposable.dispose();
   }, [enableScrollSync, setEditorScrollPercent, setEditorTopLine]);
-
-  useEffect(() => {
-    const editor = editorRef.current;
-    if (!editor) return;
-
-    const domNode = editor.getDomNode();
-    if (!domNode) return;
-
-    const handlePaste = async (event: ClipboardEvent) => {
-      if (!event.clipboardData?.items) return;
-
-      const hasImage = Array.from(event.clipboardData.items).some((item) =>
-        item.type.startsWith("image/")
-      );
-      if (!hasImage) return;
-
-      // Paste defaults run before an asynchronous upload completes. Prevent the
-      // clipboard's fallback representation from being inserted alongside the
-      // eventual Markdown image reference.
-      event.preventDefault();
-
-      const result = await uploadFromClipboard(event.clipboardData.items);
-      if (!result) return;
-
-      const selection = editor.getSelection();
-      if (!selection) return;
-
-      editor.executeEdits("dillinger-image-paste", [
-        {
-          range: selection,
-          text: `\n${result.markdown}\n`,
-          forceMoveMarkers: true,
-        },
-      ]);
-      editor.focus();
-    };
-
-    domNode.addEventListener("paste", handlePaste);
-    return () => domNode.removeEventListener("paste", handlePaste);
-  }, [uploadFromClipboard]);
 
   const handleChange: OnChange = useCallback(
     (value: string | undefined) => {

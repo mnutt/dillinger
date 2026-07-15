@@ -22,26 +22,6 @@ function createMockFile(
   return new File([content], name, { type });
 }
 
-function createMockDataTransferItemList(
-  items: Array<{ type: string; file: File | null }>
-): DataTransferItemList {
-  const dtItems = items.map((item) => ({
-    kind: "file" as const,
-    type: item.type,
-    getAsFile: () => item.file,
-    getAsString: vi.fn(),
-    webkitGetAsEntry: vi.fn(() => null),
-  }));
-
-  return Object.assign(dtItems, {
-    length: dtItems.length,
-    [Symbol.iterator]: dtItems[Symbol.iterator].bind(dtItems),
-    add: vi.fn(),
-    remove: vi.fn(),
-    clear: vi.fn(),
-  }) as unknown as DataTransferItemList;
-}
-
 function providerWrapper({ children }: { children: React.ReactNode }) {
   return createElement(ToastProvider, null, children);
 }
@@ -158,39 +138,6 @@ describe("useImageUpload", () => {
     });
 
     expect(result.current.isUploading).toBe(false);
-  });
-
-  it("extracts and uploads an image from clipboard items", async () => {
-    mockFetchSuccess();
-    const { result } = renderImageUploadHook();
-    const mockFile = createMockFile("clipboard.png");
-    const items = createMockDataTransferItemList([
-      { type: "image/png", file: mockFile },
-    ]);
-
-    let uploadResult: unknown;
-    await act(async () => {
-      uploadResult = await result.current.uploadFromClipboard(items);
-    });
-
-    expect(uploadResult).toEqual(SUCCESSFUL_RESPONSE);
-    expect(globalThis.fetch).toHaveBeenCalledOnce();
-  });
-
-  it("returns null for clipboard data with no image items", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch");
-    const { result } = renderImageUploadHook();
-    const items = createMockDataTransferItemList([
-      { type: "text/plain", file: null },
-    ]);
-
-    let uploadResult: unknown;
-    await act(async () => {
-      uploadResult = await result.current.uploadFromClipboard(items);
-    });
-
-    expect(uploadResult).toBeNull();
-    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it("shows error toast on upload failure", async () => {

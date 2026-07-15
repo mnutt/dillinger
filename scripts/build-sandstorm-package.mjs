@@ -191,8 +191,8 @@ for (const path of nextAssets) {
 }
 
 // These are the only non-Next browser assets used by the Sandstorm editor.
-// Monaco's directory is already reduced to its AMD editor/Markdown allowlist
-// and precompressed by prepare-browser-assets.mjs.
+// Monaco's directory is already reduced to the AMD editor runtime modules and
+// precompressed by prepare-browser-assets.mjs.
 const publicFiles = [
   "apple-touch-icon.png",
   "icon-192x192.png",
