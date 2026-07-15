@@ -128,7 +128,7 @@ export function SettingsModal() {
               value={settings.keybindings}
               onChange={(e) =>
                 updateSettings({
-                  keybindings: e.target.value as "default" | "vim" | "emacs",
+                  keybindings: e.target.value as "default" | "vim",
                 })
               }
               className="bg-bg-highlight text-text-invert px-2 py-1 rounded text-sm
@@ -136,7 +136,6 @@ export function SettingsModal() {
             >
               <option value="default">Default</option>
               <option value="vim">Vim</option>
-              <option value="emacs">Emacs</option>
             </select>
           </div>
         </div>

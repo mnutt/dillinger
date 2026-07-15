@@ -128,11 +128,10 @@ describe("SettingsModal", () => {
     render(<SettingsModal />);
 
     const select = screen.getByLabelText("Keybindings");
+    expect(screen.queryByRole("option", { name: "Emacs" })).not.toBeInTheDocument();
+
     await user.selectOptions(select, "vim");
     expect(useStore.getState().settings.keybindings).toBe("vim");
-
-    await user.selectOptions(select, "emacs");
-    expect(useStore.getState().settings.keybindings).toBe("emacs");
 
     await user.selectOptions(select, "default");
     expect(useStore.getState().settings.keybindings).toBe("default");

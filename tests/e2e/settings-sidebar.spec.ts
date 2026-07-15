@@ -93,12 +93,10 @@ test.describe("Settings modal", () => {
 
     const keybindingsSelect = page.locator("#keybindings");
     await expect(keybindingsSelect).toHaveValue("default");
+    await expect(keybindingsSelect.locator('option[value="emacs"]')).toHaveCount(0);
 
     await keybindingsSelect.selectOption("vim");
     await expect(keybindingsSelect).toHaveValue("vim");
-
-    await keybindingsSelect.selectOption("emacs");
-    await expect(keybindingsSelect).toHaveValue("emacs");
   });
 
   test("toggles auto-save", async ({ page }) => {
