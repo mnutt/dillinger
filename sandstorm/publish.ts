@@ -1,8 +1,10 @@
 import { execFile } from "node:child_process";
-import { mkdir, rename, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, rename, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { promisify } from "node:util";
 import { renderHtmlDocument } from "../lib/export";
 import { renderMarkdown } from "../lib/markdown";
+import { storedAssetFilename } from "./assets";
 
 const execFileAsync = promisify(execFile);
 export const MAX_MARKDOWN_SIZE = 5 * 1024 * 1024;
@@ -42,12 +44,14 @@ export async function publishDocument({
   title,
   markdown,
   sessionId,
+  assetsDirectory,
   publishDirectory,
   publicIdHelper,
 }: {
   title: unknown;
   markdown: unknown;
   sessionId: string;
+  assetsDirectory: string;
   publishDirectory: string;
   publicIdHelper: string;
 }): Promise<PublishedInfo> {
@@ -70,9 +74,33 @@ export async function publishDocument({
       throw new Error("The Sandstorm public ID helper returned invalid metadata");
     }
 
-    const rendered = await renderMarkdown(markdown);
+    const referencedAssets = new Set<string>();
+    const rendered = await renderMarkdown(markdown, {
+      transformImageUrl(url) {
+        const filename = storedAssetFilename(url);
+        if (filename) referencedAssets.add(filename);
+        return url;
+      },
+    });
     const html = renderHtmlDocument({ title, html: rendered, styled: true });
     await mkdir(publishDirectory, { recursive: true });
+    if (referencedAssets.size > 0) {
+      const publishedAssets = join(publishDirectory, "assets");
+      await mkdir(publishedAssets, { recursive: true });
+      for (const filename of Array.from(referencedAssets)) {
+        try {
+          await copyFile(
+            join(assetsDirectory, filename),
+            join(publishedAssets, filename),
+          );
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+            throw new PublishError(400, "An uploaded image is no longer available");
+          }
+          throw error;
+        }
+      }
+    }
     const target = `${publishDirectory}/index.html`;
     const temporary = `${target}.${process.pid}.${Date.now()}.tmp`;
     await writeFile(temporary, html, { mode: 0o644 });

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderMarkdown } from "@/lib/markdown";
 
 describe("renderMarkdown", () => {
@@ -160,6 +160,31 @@ describe("renderMarkdown", () => {
       const result = await renderMarkdown("just plain text");
       expect(result).toContain("<p");
       expect(result).toContain("just plain text");
+    });
+  });
+
+  describe("image URL transforms", () => {
+    it("transforms inline and reference-style Markdown images", async () => {
+      const seen: string[] = [];
+      const result = await renderMarkdown(
+        "![inline](/assets/inline.png)\n\n![reference][image]\n\n[image]: /assets/reference.png",
+        {
+          transformImageUrl(url) {
+            seen.push(url);
+            return `/published${url}`;
+          },
+        },
+      );
+
+      expect(seen).toEqual(["/assets/inline.png", "/assets/reference.png"]);
+      expect(result).toContain('src="/published/assets/inline.png"');
+      expect(result).toContain('src="/published/assets/reference.png"');
+    });
+
+    it("does not treat image syntax inside code as an image", async () => {
+      const transform = vi.fn((url: string) => url);
+      await renderMarkdown("`![code](/assets/code.png)`", { transformImageUrl: transform });
+      expect(transform).not.toHaveBeenCalled();
     });
   });
 

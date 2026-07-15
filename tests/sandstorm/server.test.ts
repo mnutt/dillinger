@@ -19,11 +19,17 @@ const grainState = {
   },
 };
 
+const PNG_BYTES = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9sotG2UAAAAASUVORK5CYII=",
+  "base64",
+);
+
 describe("Sandstorm static server", () => {
   let directory: string;
   let baseUrl: string;
   let server: ReturnType<typeof createSandstormServer>;
   let statePath: string;
+  let assetsDirectory: string;
   let publishDirectory: string;
 
   beforeEach(async () => {
@@ -31,6 +37,7 @@ describe("Sandstorm static server", () => {
     const staticRoot = join(directory, "standalone");
     const indexPath = join(staticRoot, ".next/server/app/index.html");
     statePath = join(directory, "var/dillinger/state.json");
+    assetsDirectory = join(directory, "var/dillinger/assets");
     publishDirectory = join(directory, "var/www");
     const publicIdHelper = join(directory, "get-public-id");
 
@@ -56,6 +63,7 @@ printf '%s\\n' '{"publicId":"public-id","hostname":"example.test","autoUrl":"htt
       staticRoot,
       indexPath,
       statePath,
+      assetsDirectory,
       publishDirectory,
       publicIdHelper,
     });
@@ -111,6 +119,15 @@ printf '%s\\n' '{"publicId":"public-id","hostname":"example.test","autoUrl":"htt
   });
 
   it("publishes HTML without loading the Next server", async () => {
+    const formData = new FormData();
+    formData.append("image", new File([PNG_BYTES], "pixel.png", { type: "image/png" }));
+    const upload = await fetch(`${baseUrl}/api/upload/image`, {
+      method: "POST",
+      headers: { "X-Sandstorm-Permissions": "edit" },
+      body: formData,
+    });
+    const uploaded = await upload.json() as { url: string };
+
     const response = await fetch(`${baseUrl}/api/sandstorm/publish`, {
       method: "POST",
       headers: {
@@ -118,7 +135,10 @@ printf '%s\\n' '{"publicId":"public-id","hostname":"example.test","autoUrl":"htt
         "X-Sandstorm-Permissions": "edit",
         "X-Sandstorm-Session-Id": "session-id",
       },
-      body: JSON.stringify({ title: "Fast <grain>", markdown: "# Published" }),
+      body: JSON.stringify({
+        title: "Fast <grain>",
+        markdown: `# Published\n\n![pixel](${uploaded.url})`,
+      }),
     });
 
     expect(response.status).toBe(200);
@@ -129,6 +149,37 @@ printf '%s\\n' '{"publicId":"public-id","hostname":"example.test","autoUrl":"htt
     const published = await readFile(join(publishDirectory, "index.html"), "utf8");
     expect(published).toContain("Published</h1>");
     expect(published).toContain("<title>Fast &lt;grain&gt;</title>");
+    expect(published).toContain(`src="${uploaded.url}"`);
+    await expect(readFile(join(publishDirectory, uploaded.url))).resolves.toEqual(PNG_BYTES);
+  });
+
+  it("stores uploaded images in the grain and serves immutable references", async () => {
+    const deniedData = new FormData();
+    deniedData.append("image", new File([PNG_BYTES], "pixel.png", { type: "image/png" }));
+    const denied = await fetch(`${baseUrl}/api/upload/image`, {
+      method: "POST",
+      body: deniedData,
+    });
+    expect(denied.status).toBe(403);
+
+    const formData = new FormData();
+    formData.append("image", new File([PNG_BYTES], "pixel.png", { type: "image/png" }));
+    const response = await fetch(`${baseUrl}/api/upload/image`, {
+      method: "POST",
+      headers: { "X-Sandstorm-Permissions": "edit" },
+      body: formData,
+    });
+
+    expect(response.status).toBe(200);
+    const uploaded = await response.json() as { url: string; markdown: string };
+    expect(uploaded.url).toMatch(/^\/assets\/[a-f0-9]{64}\.png$/);
+    expect(uploaded.markdown).toBe(`![pixel](${uploaded.url})`);
+
+    const asset = await fetch(`${baseUrl}${uploaded.url}`);
+    expect(asset.status).toBe(200);
+    expect(asset.headers.get("content-type")).toBe("image/png");
+    expect(asset.headers.get("cache-control")).toContain("immutable");
+    expect(Buffer.from(await asset.arrayBuffer())).toEqual(PNG_BYTES);
   });
 
   it("keeps HTML export available in the small server", async () => {

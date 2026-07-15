@@ -4,20 +4,12 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { extname, resolve, sep } from "node:path";
 import { getExportFilename, renderHtmlDocument } from "../lib/export";
 import { renderMarkdown } from "../lib/markdown";
+import { AssetError, MAX_IMAGE_SIZE, storeImage, storedAssetFilename } from "./assets";
 import { publishDocument, PublishError } from "./publish";
 import { readSandstormState, StateError, writeSandstormState } from "./state";
 
 const JSON_CONTENT_TYPE = "application/json; charset=utf-8";
 const MAX_REQUEST_SIZE = 11 * 1024 * 1024;
-const IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "image/svg+xml",
-]);
-const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-
 const MIME_TYPES: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
   ".gif": "image/gif",
@@ -41,6 +33,7 @@ export interface SandstormServerOptions {
   staticRoot: string;
   indexPath: string;
   statePath: string;
+  assetsDirectory: string;
   publishDirectory: string;
   publicIdHelper: string;
 }
@@ -62,6 +55,7 @@ function defaultOptions(): SandstormServerOptions {
     indexPath: process.env.SANDSTORM_INDEX_PATH ||
       `${staticRoot}/index.html`,
     statePath: process.env.SANDSTORM_STATE_PATH || "/var/dillinger/state.json",
+    assetsDirectory: process.env.SANDSTORM_ASSETS_DIRECTORY || "/var/dillinger/assets",
     publishDirectory: process.env.SANDSTORM_PUBLISH_DIRECTORY || "/var/www",
     publicIdHelper: process.env.SANDSTORM_GET_PUBLIC_ID_PATH ||
       "/opt/app/.sandstorm/utils/get-public-id",
@@ -185,6 +179,7 @@ async function handlePublish(
     title: body.title,
     markdown: body.markdown,
     sessionId,
+    assetsDirectory: options.assetsDirectory,
     publishDirectory: options.publishDirectory,
     publicIdHelper: options.publicIdHelper,
   }));
@@ -271,7 +266,9 @@ async function handleHtmlImport(
 async function handleImageUpload(
   request: IncomingMessage,
   response: ServerResponse,
+  options: SandstormServerOptions,
 ): Promise<void> {
+  requireEdit(request);
   const body = await readBody(request, MAX_IMAGE_SIZE + 1024 * 1024);
   const contentType = header(request, "content-type");
   if (!contentType) throw new HttpError(400, "No image provided");
@@ -286,26 +283,15 @@ async function handleImageUpload(
   if (!file || typeof file === "string") {
     throw new HttpError(400, "No image provided");
   }
-  if (!IMAGE_TYPES.has(file.type)) {
-    throw new HttpError(400, "Invalid file type. Supported: JPEG, PNG, GIF, WebP, SVG");
-  }
-  if (file.size > MAX_IMAGE_SIZE) {
-    throw new HttpError(400, "File too large. Maximum size is 5MB");
-  }
-
   const filename = "name" in file && typeof file.name === "string"
     ? file.name
     : "image";
-  const dataUrl = `data:${file.type};base64,${Buffer.from(await file.arrayBuffer()).toString("base64")}`;
-  const altText = filename.replace(/\.[^/.]+$/, "");
-  json(response, 200, {
-    success: true,
-    url: dataUrl,
-    markdown: `![${altText}](${dataUrl})`,
-    filename,
-    size: file.size,
+  json(response, 200, await storeImage({
+    bytes: Buffer.from(await file.arrayBuffer()),
     type: file.type,
-  });
+    filename,
+    assetsDirectory: options.assetsDirectory,
+  }));
 }
 
 async function handleApi(
@@ -329,7 +315,7 @@ async function handleApi(
   } else if (pathname === "/api/import/html-to-markdown") {
     await handleHtmlImport(request, response);
   } else if (pathname === "/api/upload/image") {
-    await handleImageUpload(request, response);
+    await handleImageUpload(request, response, options);
   } else {
     throw new HttpError(404, "Not found");
   }
@@ -424,6 +410,23 @@ async function handleStatic(
   }
 }
 
+async function handleAsset(
+  pathname: string,
+  request: IncomingMessage,
+  response: ServerResponse,
+  options: SandstormServerOptions,
+): Promise<void> {
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    throw new HttpError(405, "Method not allowed");
+  }
+
+  const filename = storedAssetFilename(pathname);
+  const filePath = filename ? safePath(options.assetsDirectory, filename) : null;
+  if (!filePath || !(await serveFile(request, response, filePath, true))) {
+    throw new HttpError(404, "Not found");
+  }
+}
+
 export function createSandstormServer(
   overrides: Partial<SandstormServerOptions> = {},
 ) {
@@ -433,6 +436,8 @@ export function createSandstormServer(
       const pathname = new URL(request.url || "/", "http://sandstorm.invalid").pathname;
       if (pathname.startsWith("/api/")) {
         await handleApi(pathname, request, response, options);
+      } else if (pathname.startsWith("/assets/")) {
+        await handleAsset(pathname, request, response, options);
       } else {
         await handleStatic(pathname, request, response, options);
       }
@@ -443,7 +448,8 @@ export function createSandstormServer(
       }
       const known = error instanceof HttpError ||
         error instanceof StateError ||
-        error instanceof PublishError;
+        error instanceof PublishError ||
+        error instanceof AssetError;
       const status = known ? error.status : 500;
       const message = known ? error.message : "Internal server error";
       if (!known) console.error("Sandstorm server request failed:", error);

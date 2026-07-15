@@ -34,6 +34,7 @@ export HOSTNAME=127.0.0.1
 export PORT=8000
 export NEXT_TELEMETRY_DISABLED=1
 export SANDSTORM_STATE_PATH=/var/dillinger/state.json
+export SANDSTORM_ASSETS_DIRECTORY=/var/dillinger/assets
 export SANDSTORM_STATIC_ROOT=/opt/app/.next/sandstorm-package
 export SANDSTORM_INDEX_PATH=/opt/app/.next/sandstorm-package/index.html
 

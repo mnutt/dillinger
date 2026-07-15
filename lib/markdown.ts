@@ -58,6 +58,10 @@ function applyLegacyRendererRules(instance: MarkdownIt) {
 
 let md: MarkdownIt | null = null;
 
+export interface RenderMarkdownOptions {
+  transformImageUrl?: (url: string) => string;
+}
+
 async function getMarkdownRenderer(): Promise<MarkdownIt> {
   if (md) return md;
 
@@ -128,7 +132,28 @@ async function getMarkdownRenderer(): Promise<MarkdownIt> {
   return md;
 }
 
-export async function renderMarkdown(content: string): Promise<string> {
+function transformImageUrls(
+  tokens: ReturnType<MarkdownIt["parse"]>,
+  transform: (url: string) => string,
+): void {
+  for (const token of tokens) {
+    if (token.type === "image") {
+      const source = token.attrGet("src");
+      if (source !== null) token.attrSet("src", transform(source));
+    }
+    if (token.children) transformImageUrls(token.children, transform);
+  }
+}
+
+export async function renderMarkdown(
+  content: string,
+  options: RenderMarkdownOptions = {},
+): Promise<string> {
   const renderer = await getMarkdownRenderer();
-  return renderer.render(content);
+  if (!options.transformImageUrl) return renderer.render(content);
+
+  const environment = {};
+  const tokens = renderer.parse(content, environment);
+  transformImageUrls(tokens, options.transformImageUrl);
+  return renderer.renderer.render(tokens, renderer.options, environment);
 }

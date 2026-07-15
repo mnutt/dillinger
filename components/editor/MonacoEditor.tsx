@@ -157,10 +157,18 @@ export function MonacoEditor() {
     const handlePaste = async (event: ClipboardEvent) => {
       if (!event.clipboardData?.items) return;
 
+      const hasImage = Array.from(event.clipboardData.items).some((item) =>
+        item.type.startsWith("image/")
+      );
+      if (!hasImage) return;
+
+      // Paste defaults run before an asynchronous upload completes. Prevent the
+      // clipboard's fallback representation from being inserted alongside the
+      // eventual Markdown image reference.
+      event.preventDefault();
+
       const result = await uploadFromClipboard(event.clipboardData.items);
       if (!result) return;
-
-      event.preventDefault();
 
       const selection = editor.getSelection();
       if (!selection) return;

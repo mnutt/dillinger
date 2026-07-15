@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { publishDocument, PublishError } from "@/sandstorm/publish";
 
 const PUBLISH_DIRECTORY = process.env.SANDSTORM_PUBLISH_DIRECTORY || "/var/www";
+const ASSETS_DIRECTORY = process.env.SANDSTORM_ASSETS_DIRECTORY || "/var/dillinger/assets";
 const PUBLIC_ID_HELPER =
   process.env.SANDSTORM_GET_PUBLIC_ID_PATH ||
   "/opt/app/.sandstorm/utils/get-public-id";
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
       title,
       markdown,
       sessionId,
+      assetsDirectory: ASSETS_DIRECTORY,
       publishDirectory: PUBLISH_DIRECTORY,
       publicIdHelper: PUBLIC_ID_HELPER,
     }));
